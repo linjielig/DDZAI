@@ -49,26 +49,32 @@ namespace DDZAI {
         public CardType type { get; set; }
         public CardValue value { get; set; }
         public int Count { get; set; }
-        Sequence[] sequence = {
-            new Sequence(),
-            new Sequence(),
-            new Sequence()
+       
+        Dictionary<CardType, Sequence> sequence = new Dictionary<CardType, Sequence> {
+            { CardType.sequence, new Sequence() },
+            { CardType.sequencePair, new Sequence() },
+            { CardType.sequenceThree, new Sequence() },
+
         };
         public List<CardValue> postfix = new List<CardValue>();
 
         public Sequence GetSequence(CardType type) {
-            switch (type) {
-                case CardType.sequence:
-                    return sequence[0];
-                case CardType.sequencePair:
-                    return sequence[1];
-                case CardType.sequenceThree:
-                    return sequence[2];
-                default:
-                    return null;
+            if (sequence.ContainsKey(type)) {
+                return sequence[type];
+            } else {
+                return null;
             }
         }
 
+        public bool SetSequence(CardType type, CardValue start, CardValue end) {
+            if (sequence.ContainsKey(type)) {
+                sequence[type].start = start;
+                sequence[type].end = end;
+            } else {
+                return false;
+            }
+            return true;
+        }
         public bool IsContain(CardType checkType) {
             if ((type & checkType) != 0) {
                 return true;
@@ -80,13 +86,14 @@ namespace DDZAI {
             string str = "\r\n" + Count + " 个 " + value + "\t牌型信息\r\n";
             str += "牌型：\t" + type + "\r\n";
             str += "顺子信息:\r\n";
-            for (int i = 0; i < sequence.Length; i++) {
-                str += i + 1 + "顺 起：\t" + sequence[i].start + ", 止：\t" + sequence[i].end + "\r\n";
+            foreach (KeyValuePair<CardType, Sequence> keyValue in sequence) {
+                str += keyValue.Key + "\t起：\t" + keyValue.Value.start + ", 止：\t" + keyValue.Value.end + "\r\n";
             }
             str += "带牌信息：";
             for (int i = 0; i < postfix.Count; i++) {
                 str += postfix[i] + ",\t";
             }
+            str += "\r\n";
             return str;
         }
 
@@ -107,7 +114,7 @@ namespace DDZAI {
             }
         }
         public void Show(string message) {
-
+            Console.WriteLine(message);
         }
     }
 
@@ -121,32 +128,25 @@ namespace DDZAI {
                 0x4e,   0x4f
                 };
 
-        // 作弊模式知道其他玩家的牌，使用cards1, cards2的数据进行计算。
-        // 非作弊模式不知道其他玩家的牌，使用cards12的数据进行计算。
-        // 其他玩家的牌型信息。
-        SortedDictionary<CardValue, TypeInfo> infos1 = new SortedDictionary<CardValue, TypeInfo>();
-        SortedDictionary<CardValue, TypeInfo> infos2 = new SortedDictionary<CardValue, TypeInfo>();
-        SortedDictionary<CardValue, TypeInfo> infos12 = new SortedDictionary<CardValue, TypeInfo>();
-        // 自己的牌型信息。
-        SortedDictionary<CardValue, TypeInfo> infos = new SortedDictionary<CardValue, TypeInfo>();
-
+        // 0 自己的牌的数据。
+        // 1 玩家1的牌的数据。
+        // 2 玩家2的牌的数据。
+        // 3 没有其他玩家的数据，根据自己的牌推算的其他两个玩家的总数据。
+        SortedDictionary<CardValue, TypeInfo>[] infos = {
+            new SortedDictionary<CardValue, TypeInfo>(),
+            new SortedDictionary<CardValue, TypeInfo>(),
+            new SortedDictionary<CardValue, TypeInfo>(),
+            new SortedDictionary<CardValue, TypeInfo>()
+        };
         public string GetInfos() {
-            string str = "\r\n所有玩家牌型信息\r\n";
-            str += "\r\n 当前玩家 infos 信息:\r\n";
-            foreach (KeyValuePair<CardValue, TypeInfo> keyValuePair in infos) {
-                str += keyValuePair.Value.ToString();
-            }
-            str += "\r\n 其他玩家 infos1 信息:\r\n";
-            foreach (KeyValuePair<CardValue, TypeInfo> keyValuePair in infos1) {
-                str += keyValuePair.Value.ToString();
-            }
-            str += "\r\n 其他玩 infos2 信息:\r\n";
-            foreach (KeyValuePair<CardValue, TypeInfo> keyValuePair in infos2) {
-                str += keyValuePair.Value.ToString();
-            }
-            str += "\r\n 其他玩 infos12 信息:\r\n";
-            foreach (KeyValuePair<CardValue, TypeInfo> keyValuePair in infos12) {
-                str += keyValuePair.Value.ToString();
+            string str = "\r\n所有玩家牌数据\r\n";
+            int count = 0;
+            foreach (SortedDictionary<CardValue, TypeInfo> info in infos) {
+                str += "\r\n 牌数据infos[" + count + "]的 信息:\r\n";
+                foreach (KeyValuePair<CardValue, TypeInfo> keyValue in info) {
+                    str += keyValue.Value.ToString();
+                }
+                count++;
             }
             return str;
         }
@@ -159,39 +159,105 @@ namespace DDZAI {
             }
             return datas;
         }
-
+        void RemoveListFromList(List<byte> list, List<byte> remove) {
+            for (int i = 0; i < remove.Count; i++) {
+                list.Remove(remove[i]);
+            }
+        }
         public void FillInfos(List<byte> datas, List<byte> datas1, List<byte> datas2) {
-            // 自己的牌型信息。
-            Fill(infos, datas);
+            // 自己牌的数据。
+            Fill(infos[0], datas);
             // 除去自己的牌之后剩余的牌。
             List<byte> temp = new List<byte>(allDatas);
-            for (int i = 0; i < datas.Count; i++) {
-                temp.Remove(datas[i]);
-            }
+            RemoveListFromList(temp, datas);
             // 没有其他玩家的纸牌数据，使用除去自己的牌剩余的牌的数据。
             if (datas1 == null && datas2 == null) {
-                Fill(infos12, temp);
+                Fill(infos[3], temp);
             }
             // 有其他玩家的数据。
             else {
                 // 有玩家2的数据，计算玩家1的数据。
                 if (datas1 == null && datas2 != null) {
-                    for (int i = 0; i < datas2.Count; i++) {
-                        temp.Remove(datas2[i]);
-                    }
+                    RemoveListFromList(temp, datas2);
                     datas1 = temp;
                 }
                 // 有玩家1的数据，计算玩家2的数据。
                 else if (datas1 != null && datas2 == null) {
-                    for (int i = 0; i < datas1.Count; i++) {
-                        temp.Remove(datas1[i]);
-                    }
+                    RemoveListFromList(temp, datas1);
                     datas2 = temp;
                 }
-                Fill(infos1, datas1);
-                Fill(infos2, datas2);
+                Fill(infos[1], datas1);
+                Fill(infos[2], datas2);
+            }
+            for (int i = 0; i < infos.Length; i++) {
+                FillSequenceInfos(infos[i], CardType.sequence);
+                FillSequenceInfos(infos[i], CardType.sequencePair);
+                FillSequenceInfos(infos[i], CardType.sequenceThree);
             }
 
+        }
+        const int sequenceRequireLength = 5;
+        const int sequenceRequireCount = 1;
+        const int sequencePairRequireLength = 3;
+        const int sequencePairRequireCount = 2;
+        const int sequenceThreeRequireLength = 2;
+        const int sequenceThreeRequireCount = 3;
+
+        bool GetSequenceRequire(CardType type, out int length, out int count) {
+            length = 5;
+            count = 1;
+            switch (type) {
+                case CardType.sequence:
+                    break;
+                case CardType.sequencePair:
+                    length = 3;
+                    count = 2;
+                    break;
+
+                case CardType.sequenceThree:
+                case CardType.sequenceThreeSingle:
+                case CardType.sequenceThreePair:
+                    length = 2;
+                    count = 3;
+                    break;
+                default:
+                    return false;
+
+            }
+            return true;
+        }
+        bool FillSequenceInfos(SortedDictionary<CardValue, TypeInfo> infos_, CardType sequenceType) {
+            // 顺子长度和牌的数量要求。
+            if (!GetSequenceRequire(sequenceType, out int requireLength, out int requireCount)) {
+                return false;
+            }
+
+            CardValue startValue = CardValue.three;
+            CardValue endValue = CardValue.three;
+            int length = 0;
+            for (CardValue checkValue = CardValue.three; checkValue <= CardValue.two; checkValue++) {
+                if (infos_.ContainsKey(checkValue) && infos_[checkValue].Count >= requireCount && checkValue <= CardValue.ace) {
+                    endValue = checkValue;
+                    length++;
+                } else {
+                    // 是否存在顺子。
+                    FillSequenceData(infos_, length, requireLength, startValue, endValue, sequenceType);
+                    startValue = checkValue + 1;
+                    length = 0;
+                }
+
+            }
+            return true;
+        }
+
+        void FillSequenceData(SortedDictionary<CardValue, TypeInfo> infos_, int length, int requireLength, 
+            CardValue start, CardValue end, CardType sequenceType) {
+            if (length >= requireLength) {
+                for (CardValue value = start; value <= end; value++) {
+                    infos_[value].type |= sequenceType;
+                    infos_[value].SetSequence(sequenceType, start, end);
+                }
+            }
         }
 
         public CardValue GetCardValue(byte data) {
