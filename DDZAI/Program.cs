@@ -47,6 +47,7 @@ namespace DDZAI {
 
     class TypeInfo {
         public CardType type { get; set; }
+        public CardType compareType { get; set; }
         public CardValue value { get; set; }
         public int Count { get; set; }
        
@@ -57,6 +58,26 @@ namespace DDZAI {
 
         };
         public List<CardValue> postfix = new List<CardValue>();
+
+        public static bool operator <(TypeInfo a, TypeInfo b) {
+            if (a.compareType == CardType.rocket) {
+                return false;
+            }
+            if (a.compareType != CardType.bomb && b.IsContain(CardType.bomb)) {
+                return true;
+            }
+            return false;
+        }
+
+        public static bool operator >(TypeInfo a, TypeInfo b) {
+            if (a.compareType == CardType.rocket) {
+                return false;
+            }
+            if (a.compareType != CardType.bomb && b.IsContain(CardType.bomb)) {
+                return true;
+            }
+            return false;
+        }
 
         public Sequence GetSequence(CardType type) {
             if (sequence.ContainsKey(type)) {
@@ -81,7 +102,31 @@ namespace DDZAI {
             }
             return false;
         }
-
+        public bool IsSequence() {
+            if ((type & (CardType.sequence |
+                CardType.sequencePair |
+                CardType.sequenceThree |
+                CardType.sequenceThreeSingle |
+                CardType.sequenceThreePair)) != 0) {
+                return true;
+            }
+            return false;
+        }
+        // 不拆分时除去顺子的牌型。
+        public CardType GetRealType() {
+            switch (Count) {
+                case 1:
+                    return CardType.single;
+                case 2:
+                    return CardType.pair;
+                case 3:
+                    return CardType.three;
+                case 4:
+                    return CardType.bomb;
+                default:
+                    return CardType.none;
+            }
+        }
         public override string ToString() {
             string str = "\r\n" + Count + " 个 " + value + "\t牌型信息\r\n";
             str += "牌型：\t" + type + "\r\n";
@@ -120,7 +165,7 @@ namespace DDZAI {
 
     class Logic {
         // 所有牌的数据。
-        List<byte> allDatas = new List<byte> {
+        public static List<byte> allDatas = new List<byte> {
                 0x1,    0x2,    0x3,    0x4,    0x5,    0x6,    0x7,    0x8,    0x9,    0xa,    0xb,    0xc,    0xd,
                 0x11,   0x12,   0x13,   0x14,   0x15,   0x16,   0x17,   0x18,   0x19,   0x1a,   0x1b,   0x1c,   0x1d,
                 0x21,   0x22,   0x23,   0x24,   0x25,   0x26,   0x27,   0x28,   0x29,   0x2a,   0x2b,   0x2c,   0x2d,
@@ -142,7 +187,7 @@ namespace DDZAI {
             string str = "\r\n所有玩家牌数据\r\n";
             int count = 0;
             foreach (SortedDictionary<CardValue, TypeInfo> info in infos) {
-                str += "\r\n 牌数据infos[" + count + "]的 信息:\r\n";
+                str += "\r\n ------------>>>>>>>>>>>>>>>牌数据infos[" + count + "]的 信息:\r\n";
                 foreach (KeyValuePair<CardValue, TypeInfo> keyValue in info) {
                     str += keyValue.Value.ToString();
                 }
@@ -150,12 +195,20 @@ namespace DDZAI {
             }
             return str;
         }
-
-        public List<byte> GenerateDatas() {
+        public string ShowList(string title, List<byte> datas) {
+            string str = "\r\n" + title + "\r\n";
+            for (int i = 0; i < datas.Count; i++) {
+                str += datas[i].ToString("X") + ",\t";
+            }
+            return str;
+        }
+        public List<byte> GenerateDatas(List<byte> remainDatas) {
             Random rnd = new Random();
             List<byte> datas = new List<byte>();
-            for (int i = 0; i < 20; i++) {
-                datas.Add(allDatas[rnd.Next(0, 54)]);
+            for (int i = 0; i < 17; i++) {
+                int index = rnd.Next(0, remainDatas.Count);
+                datas.Add(remainDatas[index]);
+                remainDatas.RemoveAt(index);
             }
             return datas;
         }
@@ -306,18 +359,36 @@ namespace DDZAI {
             return true;
         }
 
-        int GetPower(TypeInfo info, List<TypeInfo> infos1, List<TypeInfo> infos2) {
+        int GetTimes_(TypeInfo info, SortedDictionary<CardValue, TypeInfo> otherInfos1,
+            SortedDictionary<CardValue, TypeInfo> otherInfos2) {
+            // 存在王炸，返回-1。避免重复计算，只在检测小王时返回。
             if (info.IsContain(CardType.rocket)) {
-                return -1;
+                if (info.value == CardValue.blackJoker) {
+                    return -1;
+                }
+                return 0;
             }
             return 0;
+        }
+        int GetTimes(SortedDictionary<CardValue, TypeInfo> checkInfos,
+            SortedDictionary<CardValue, TypeInfo> otherInfos1,
+            SortedDictionary<CardValue, TypeInfo> otherInfos2) {
+            int times = 0;
+            foreach (KeyValuePair<CardValue, TypeInfo> keyValue in checkInfos) {
+                times += GetTimes_(keyValue.Value, otherInfos1, otherInfos2);
+            }
+            return times;
         }
     }
     class Program {
         static void Main(string[] args) {
             Logic l = new Logic();
-            List<byte> listByte = l.GenerateDatas();
-            l.FillInfos(listByte, null, null);
+            List<byte> all = new List<byte>(Logic.allDatas);
+            List<byte> datas = l.GenerateDatas(all);
+            List<byte> datas1 = l.GenerateDatas(all);
+            List<byte> datas2 = l.GenerateDatas(all);
+            List<byte> landDatas = all;
+            l.FillInfos(datas, datas1, datas2);
             Console.WriteLine(l.GetInfos());
         }
     }
