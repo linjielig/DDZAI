@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace DDZAI {
+namespace DDZ {
     public class Cards : ICards {
         SortedDictionary<CardValue, TypeInfo> infos = new SortedDictionary<CardValue, TypeInfo>();
 

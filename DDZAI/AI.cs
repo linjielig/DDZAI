@@ -1,8 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace DDZAI {
-    public class AI : AbstractAI {
+namespace DDZ {
+
+    public class AI : AAI {
         public int LandLimit { get; set; }
         public int DoubleLimit { get; set; }
         public int FarmerOutFarmerLimit { get; set; }

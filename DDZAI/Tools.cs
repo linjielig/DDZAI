@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace DDZAI {
+namespace DDZ {
     public static class Tools {
         public static void SortedDictionaryCopy<TKey, TValue>(
             SortedDictionary<TKey, TValue> src, 

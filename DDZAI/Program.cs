@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace DDZAI {
+namespace DDZ {
     class Log {
         static Log instance;
         public static Log Instance {
