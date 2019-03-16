@@ -42,5 +42,16 @@ namespace DDZ {
 
     interface IEnvironment__ {
         SortedDictionary<CardValue, TypeInfo> Cards(CardsOwner owner);
+        // 谁是地主。
+        CardsOwner GetLand();
+        // 其他玩家打出的牌，如果为空则说明自己先出牌，或者没人要自己打出的牌。
+        List<byte> GetLastOut();
+        // 我是否是地主的上家。
+        bool IsMyBeforeLand();
+        // 上次出牌的人是否是地主。
+        bool IsLandLastOut();
+        // 那个农民的牌比较好。
+        CardsOwner GetBetterFarmer();
+
     }
 }

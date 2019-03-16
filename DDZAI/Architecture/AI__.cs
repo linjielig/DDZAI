@@ -53,7 +53,7 @@ namespace DDZ {
         bool IsLand();
         // 是否加倍。
         bool IsDouble();
-        // 是否出牌，出什么牌。
+        // 是否出牌，出什么牌。返回null表示不出牌。
         List<byte> GetOut();
         // 设置智力级别。
         void SetIntelligence();
@@ -61,10 +61,10 @@ namespace DDZ {
     public abstract class AI__ : IAI__ {
         IEnvironment__ environment;
         IScore__ score;
-
+        IOut__ out_;
         // 获取限制数据。
         protected abstract int Limit(LimitType limit);
-        public bool IsLand() {
+        public virtual bool IsLand() {
             int limit = Limit(LimitType.land);
             int myScore = score.Get(CardsOwner.my);
 
@@ -84,6 +84,47 @@ namespace DDZ {
                 }
             }
             return false;
+        }
+        public virtual bool IsDouble() {
+            if (score.Get(CardsOwner.my) < Limit(LimitType.double_)) {
+                return true;
+            }
+            return false;
+        }
+        List<byte> GetOut() {
+            // 是否打别人的牌。
+            if (environment.GetLastOut() != null) {
+                // 我是地主。
+                if (environment.GetLand() == CardsOwner.my) {
+                    // 打了农民牌之后牌太差了，就不出牌了。
+                    if (score.GetAfterOut(CardsOwner.my) > Limit(LimitType.landOut)) {
+                        return null;
+                    }
+                }
+                // 我是农民。
+                else {
+                    // 我是牌比较好的农民。
+                    if (environment.GetBetterFarmer() == CardsOwner.my) {
+                        // 打了之后牌太差，就不出。
+                        if (score.GetAfterOut(CardsOwner.my) > Limit(LimitType.famerOut)) {
+                            return null;
+                        }
+                    }
+                    if (!environment.IsLandLastOut()) {
+                        out_.Get(true);
+                        CardsOwner other = environment.GetLand() == CardsOwner.other1 ? CardsOwner.other2 : CardsOwner.other1;
+                        // 地主牌变好。
+                        if (score.GetAfterSimulationOut(environment.GetLand()) < score.GetAfterOut(environment.GetLand()) ||
+                            // 农民牌变差。
+                            score.GetAfterSimulationOut(other) > score.GetAfterOut(other)
+                        ) {
+                            return null;
+                        }
+                    }
+                }
+            }
+
+            return out_.Get();
         }
     }
 }
