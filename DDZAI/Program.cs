@@ -133,39 +133,6 @@ namespace DDZ {
             }
             return true;
         }
-        bool FillSequenceInfos(SortedDictionary<CardValue, TypeInfo> infos_, CardType sequenceType) {
-            // 顺子长度和牌的数量要求。
-            if (!GetSequenceRequire(sequenceType, out int requireLength, out int requireCount)) {
-                return false;
-            }
-
-            CardValue startValue = CardValue.three;
-            CardValue endValue = CardValue.three;
-            int length = 0;
-            for (CardValue checkValue = CardValue.three; checkValue <= CardValue.two; checkValue++) {
-                if (infos_.ContainsKey(checkValue) && infos_[checkValue].Count >= requireCount && checkValue <= CardValue.ace) {
-                    endValue = checkValue;
-                    length++;
-                } else {
-                    // 是否存在顺子。
-                    FillSequenceData(infos_, length, requireLength, startValue, endValue, sequenceType);
-                    startValue = checkValue + 1;
-                    length = 0;
-                }
-
-            }
-            return true;
-        }
-
-        void FillSequenceData(SortedDictionary<CardValue, TypeInfo> infos_, int length, int requireLength, 
-            CardValue start, CardValue end, CardType sequenceType) {
-            if (length >= requireLength) {
-                for (CardValue value = start; value <= end; value++) {
-                    infos_[value].type |= sequenceType;
-                    infos_[value].SetSequence(sequenceType, start, end);
-                }
-            }
-        }
 
         public CardValue GetCardValue(byte data) {
             byte value = (byte)(data & 0xf);
