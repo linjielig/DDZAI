@@ -52,6 +52,8 @@ namespace DDZ {
         bool IsLandLastOut();
         // 那个农民的牌比较好。
         CardsOwner GetBetterFarmer();
+        // 其他两家是否有大于此牌型的牌。
+        bool IsHaveGreater(TypeInfo info);
 
     }
 }

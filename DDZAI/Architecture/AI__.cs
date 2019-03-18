@@ -110,17 +110,21 @@ namespace DDZ {
                             return null;
                         }
                     }
-                    if (!environment.IsLandLastOut()) {
-                        out_.Get(true);
-                        CardsOwner other = environment.GetLand() == CardsOwner.other1 ? CardsOwner.other2 : CardsOwner.other1;
-                        // 地主牌变好。
-                        if (score.GetAfterSimulationOut(environment.GetLand()) < score.GetAfterOut(environment.GetLand()) ||
-                            // 农民牌变差。
-                            score.GetAfterSimulationOut(other) > score.GetAfterOut(other)
-                        ) {
-                            return null;
+                    // 我是牌比较差的农民。
+                    else {
+                        if (!environment.IsLandLastOut()) {
+                            out_.Get(true);
+                            CardsOwner other = environment.GetLand() == CardsOwner.other1 ? CardsOwner.other2 : CardsOwner.other1;
+                            // 地主牌变好。
+                            if (score.GetAfterSimulationOut(environment.GetLand()) < score.GetAfterOut(environment.GetLand()) ||
+                                // 农民牌变差。
+                                score.GetAfterSimulationOut(other) > score.GetAfterOut(other)
+                            ) {
+                                return null;
+                            }
                         }
                     }
+
                 }
             }
 
