@@ -1,35 +1,21 @@
 ﻿/*
      * 需求：   
-     * 1. 根据三个玩家牌的好坏来决定是否叫地主，是否加倍。
-     * 2. 根据当时的环境来决定是否出牌，出什么牌最有利。
-     * 3. 根据库存调整智力。    
+     * 1. 根据三家牌的数据，准备判断是否叫地主，加倍。
+     * 2. 根据三家牌的数据，自己的位置，自己是否是地主，准确判断是否出牌，出什么牌。
+     * 3. 根据需求调整程序判断的准确度，以赢钱或输钱。
      * 
      * 架构：
-     * 1. 手数计算，根据三家的牌计算自己的牌几手可以出完。
-     * 2. 分数计算，根据三家的牌计算自己的牌的评分。
-     * 3. 出牌计算，根据三家的牌和当时的环境判断是否出牌，出什么牌。
-     * 4. 环境数据，谁是地主，谁是农民，上家出牌的数据，自己和其他玩家手上牌的数据。
-     * 5. 牌型计算，计算打出的是什么牌型。
-     * 6. 智力计算，根据库存来调整AI智力。
+     * 1. 评分组件，根据三家牌的数据，准确的对三家手中牌，手中牌加上底牌或模拟出牌之后的牌进行评分，
+     * 评分越低的牌获胜几率越大，三家评分的关系决定是否叫地主，是否加倍。
+     * 2. 出牌组件，根据三家评分的关系，自己的位置，自己是否是地主，来判断是否出牌，出什么牌。
+     * 3. 环境组件，提供谁是地主，三个玩家的牌数据，三个玩家的位置关系。
+     * 4. 智力组件，调整提供数据的多少和判断的准确度。
      */
 
 using System;
 using System.Collections.Generic;
 
 namespace DDZ {
-    public enum IntelligenceType {
-        // 可以获取其他玩家手上牌的数据，考虑地主和农民关系，自己的位置关系，计算出牌或者不出牌对三家手上牌的影响。
-        cheat,
-        // 不可以获取其他玩家手上牌的数据，考虑地主和农民关系，自己的位置关系，计算出牌或者不出牌对自己手上牌的影响，
-        // 推算其他玩家手上牌。
-        strongSpeculate,
-        // 不可以获取其他玩家手上牌的数据，考虑地主和农民关系，自己的位置关系，计算出牌或者不出牌对自己手上牌的影响，
-        // 不推算其他玩家手上牌。
-        speculate,
-        // 计算出牌或者不出牌对自己手上牌的影响。
-        weakSpeculate
-    }
-
     enum CardsOwner {
         my,
         other1,
@@ -37,17 +23,6 @@ namespace DDZ {
         other12
     }
 
-    // 分数限制。
-    public enum LimitType {
-        // 叫地主。
-        land,
-        // 加倍。
-        double_,
-        // 地主出牌。
-        landOut,
-        // 农民出牌。
-        famerOut,
-    }
     public interface IAI__ {
         // 是否叫地主。
         bool IsLand();
@@ -56,79 +31,68 @@ namespace DDZ {
         // 是否出牌，出什么牌。返回null表示不出牌。
         List<byte> GetOut();
         // 设置智力级别。
-        void SetIntelligence();
+        void SetIntelligence(IntelligenceType type);
     }
+
+    // 由出牌手数和牌型的大小情况来计算评分，评分越低表明获胜几率越大。
     public abstract class AI__ : IAI__ {
         IEnvironment__ environment;
         IScore__ score;
         IOut__ out_;
-        // 获取限制数据。
-        protected abstract int Limit(LimitType limit);
-        public virtual bool IsLand() {
-            int limit = Limit(LimitType.land);
-            int myScore = score.Get(CardsOwner.my);
 
+        bool IsLandOrDouble(LimitType type) {
             // 有其他玩家牌的数据。
-            if (environment.Cards(CardsOwner.other1) != null) {
-                // 自己的牌比另外两家好的程度可以叫地主。
-                if (myScore - score.Get(CardsOwner.other1) < limit &&
-                    myScore - score.Get(CardsOwner.other2) < limit) {
+            if (environment.IsHaveOtherData()) {
+                // 自己的牌比另外两家好的程度。
+                if (score.My() - score.BetterOther() < score.Limit(type)) {
                     return true;
                 }
-            } 
+            }
             // 没有其他玩家牌的数据
-            // 自己的牌好的程度可以叫地主。
+            // 自己的牌好的程度。
             else {
-                if (myScore < limit) {
+                // 此处IScore.Limit返回的限制与上方的不同，表示的是没有其他玩家数据时的限制。
+                if (score.My() < score.Limit(type)) {
                     return true;
                 }
             }
             return false;
         }
-        public virtual bool IsDouble() {
-            if (score.Get(CardsOwner.my) < Limit(LimitType.double_)) {
-                return true;
-            }
-            return false;
+
+        // 是否叫地主。
+        public virtual bool IsLand() {
+            return IsLandOrDouble(LimitType.land);
         }
-        List<byte> GetOut() {
+
+        // 是否加倍。
+        public virtual bool IsDouble() {
+            return IsLandOrDouble(LimitType.double_);
+        }
+
+        // 是否出牌，出什么牌。
+        public List<byte> GetOut() {
             // 是否打别人的牌。
             if (environment.GetLastOut() != null) {
-                // 我是地主。
-                if (environment.GetLand() == CardsOwner.my) {
-                    // 打了农民牌之后牌太差了，就不出牌了。
-                    if (score.GetAfterOut(CardsOwner.my) > Limit(LimitType.landOut)) {
+                    // 模拟过牌。
+                    out_.SimulatePass();
+                    int passRanking = score.SimulateRanking();
+                    // 模拟出牌。
+                    out_.Simulate();
+                    int outRanking = score.SimulateRanking();
+                    // 出牌后我评分的排名可能下降，不出牌。
+                    // 如果我是牌比较差的农民，这里返回的是牌比较好的农民评分的排名，
+                    // 出牌后牌比较好的农名评分的排名可能下降，不出牌。
+                    if (passRanking > outRanking) {
                         return null;
                     }
                 }
-                // 我是农民。
-                else {
-                    // 我是牌比较好的农民。
-                    if (environment.GetBetterFarmer() == CardsOwner.my) {
-                        // 打了之后牌太差，就不出。
-                        if (score.GetAfterOut(CardsOwner.my) > Limit(LimitType.famerOut)) {
-                            return null;
-                        }
-                    }
-                    // 我是牌比较差的农民。
-                    else {
-                        if (!environment.IsLandLastOut()) {
-                            out_.Get(true);
-                            CardsOwner other = environment.GetLand() == CardsOwner.other1 ? CardsOwner.other2 : CardsOwner.other1;
-                            // 地主牌变好。
-                            if (score.GetAfterSimulationOut(environment.GetLand()) < score.GetAfterOut(environment.GetLand()) ||
-                                // 农民牌变差。
-                                score.GetAfterSimulationOut(other) > score.GetAfterOut(other)
-                            ) {
-                                return null;
-                            }
-                        }
-                    }
-
-                }
-            }
 
             return out_.Get();
+        }
+
+        // 设置智力级别。
+        public void SetIntelligence(IntelligenceType type) {
+
         }
     }
 }
