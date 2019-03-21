@@ -2,9 +2,12 @@
 using System.Collections.Generic;
 
 namespace DDZ {
+    // 计算手中牌几次可以出完。
     interface ITimes__ {
         // 获取手上牌手数。
         int Get();
+        // 我手中牌几次可以出完。
+        int My();
     }
     class Times__ : ITimes__ {
         public int Get() {

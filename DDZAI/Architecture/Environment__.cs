@@ -57,6 +57,9 @@ namespace DDZ {
         CardsOwner GetBetterFarmer();
         // 其他两家是否有大于此牌型的牌。
         bool IsHaveGreater(TypeInfo info);
-
+        // 叫地主限制。
+        int LandLimit();
+        // 加倍限制。
+        int DoubleLimit();
     }
 }

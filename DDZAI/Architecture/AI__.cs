@@ -33,7 +33,7 @@ namespace DDZ {
     }
 
     // 由出牌手数和牌型的大小情况来计算评分，评分越低表明获胜几率越大。
-    public abstract class AI__ : IAI__ {
+    abstract class AI__ : IAI__ {
         IEnvironment__ environment;
         IScore__ score;
         IOut__ out_;
