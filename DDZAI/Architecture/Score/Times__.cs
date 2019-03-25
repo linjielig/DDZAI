@@ -8,6 +8,8 @@ namespace DDZ {
         int Get();
         // 我手中牌几次可以出完。
         int My();
+        // 其余玩家当中牌较好的。
+        int BetterOther();
     }
     class Times__ : ITimes__ {
         public int Get() {
